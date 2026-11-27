@@ -32,7 +32,7 @@ The generated dark rectangular defect is deliberately simple and can produce dec
 - `app/vision.py`: generated surfaces, image validation, features, reference bank, cutoff, overlay.
 - `app/main.py`: FastAPI upload and sample endpoints; local-only checks are in `app/base.py`.
 - `app/static/`: browser interface. `GET /docs` serves API documentation.
-- `tests/test_project.py`: automated unit and API tests. `docs/AUDIT.md` and `docs/INTERVIEW_STUDY_GUIDE.txt`: audit and beginner guide.
+- `tests/test_project.py`: automated unit and API tests. `docs/AUDIT.md`: project audit and limitations.
 
 Windows test commands after running the app once:
 
