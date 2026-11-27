@@ -1,0 +1,6 @@
+'use strict';const $=id=>document.getElementById(id);const txt=(id,t)=>$(id).textContent=t;let ticket=0;
+async function read(r){let d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Request failed');return d}
+function display(d){$('output').hidden=false;$('original').src=d.image;$('overlay').src=d.heatmap;txt('score',d.score.toFixed(3));txt('threshold',d.threshold.toFixed(3));txt('verdict',d.flagged?'Flagged':'Below cutoff');txt('status',`Showing ${d.kind}.`)}
+async function run(url,options){const id=++ticket;txt('status','Inspecting…');try{const d=await read(await fetch(url,options));if(id===ticket)display(d)}catch(e){if(id===ticket){$('output').hidden=true;txt('status',e.message)}}}
+$('defect').onclick=()=>{$('imageFile').value='';run('/api/sample?defect=true')};$('normal').onclick=()=>{$('imageFile').value='';run('/api/sample?defect=false')};$('imageFile').onchange=e=>{if(!e.target.files.length)return;const body=new FormData();body.append('file',e.target.files[0]);run('/api/inspect',{method:'POST',body})};
+(async()=>{try{let d=await read(await fetch('/api/status'));let e=d.evaluation;txt('auc',e.roc_auc.toFixed(3));txt('caught',`${e.defects_flagged} / ${e.defect_count}`);txt('false',`${e.normal_flagged} / ${e.normal_count}`);await run('/api/sample?defect=true')}catch(e){txt('status',e.message)}})();
