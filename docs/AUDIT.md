@@ -4,7 +4,7 @@ This is a lightweight self-audit, not an independent security or industrial vali
 
 ## Checks and corrections
 
-- Prevented the common mislabeling of a nearest-neighbor texture baseline as PatchCore or a neural network. The UI, README and study guide describe exactly the four handcrafted features and brute-force distance method.
+- Prevented the common mislabeling of a nearest-neighbor texture baseline as PatchCore or a neural network. The UI and README describe exactly the four handcrafted features and brute-force distance method.
 - Separated synthetic normal train seeds, normal-validation seeds, and test seeds. Training-only scaler/reference bank and validation-only cutoff reduce direct leakage. The test is tiny, from the same generator, and was inspected during development.
 - Added explicit warnings that the 95th percentile from 12 normal samples does not guarantee a 5% real false-alarm rate; image AUC is not localization performance; colors are normalized per image.
 - Reject unreadable, empty, oversized and too-small images, restrict to PNG/JPEG, cap pixel dimensions before full decode, and limit input bytes read. The multipart parser may spool files before the endpoint reads them; this is not a hardened request-body limit.
