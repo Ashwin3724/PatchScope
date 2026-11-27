@@ -1,0 +1,94 @@
+PATCHSCOPE — BEGINNER INTERVIEW STUDY GUIDE
+
+This guide describes the actual AI-assisted PatchScope implementation. Study and modify the code yourself, and disclose assistance where appropriate. All reference and test images are generated. Never claim the toy results demonstrate real industrial performance.
+
+1. THE IDEA
+
+A factory may have many pictures of acceptable products and few examples of every possible defect. Anomaly detection asks: "How different is a new observation from examples of normal behavior?" PatchScope turns synthetic surface images into small image patches, stores simple numerical descriptions of normal patches, and scores a new patch by its distance from its nearest reference patch. The image score is the maximum patch distance, and the UI overlays a coarse heatmap.
+
+This is a classical computer-vision baseline. It is NOT PatchCore, a pretrained neural network, a convolutional neural network, a pixel segmentation model or a real production inspection system. It does not learn from uploaded images; the reference bank always comes from synthetic normal surfaces.
+
+2. BASIC IMAGE CONCEPTS
+
+A digital image is a grid of pixels. A color image often has red, green and blue channels; a grayscale image has one intensity value per pixel. Resolution is the number of pixels across and down. Resizing can erase small details, alter edges and distort aspect ratio. This project resizes inputs to 128×128 pixels, then converts them to grayscale for feature extraction. The displayed input is the resized RGB image.
+
+A patch is a subregion. PatchScope divides the image into 16×16 non-overlapping patches, giving 8×8 = 64 patches. This is coarse: a scratch smaller than a patch may be hard to localize, and patch boundaries affect results.
+
+3. FOUR HANDCRAFTED FEATURES
+
+Each patch becomes a vector of four values:
+- Mean grayscale intensity, a measure of average brightness.
+- Standard deviation of intensities, a measure of variation within the patch.
+- Mean absolute difference between neighboring pixels vertically.
+- Mean absolute difference between neighboring pixels horizontally.
+
+The latter two are simple texture/edge indicators, not learned embeddings. Two different visual patterns can have similar four-number summaries, so this representation loses information. Lighting, resizing and background texture also change features.
+
+An ML model isn't always a neural network. Here StandardScaler and nearest-neighbor search are fitted on normal reference features. The core reference-bank method is unsupervised with respect to defect labels: only synthetic normal training images are used to build it.
+
+4. STANDARDIZATION AND DISTANCE
+
+Different features have different scales. StandardScaler calculates the mean and standard deviation of each feature on the normal training patches and transforms features approximately as (value - training mean) / training standard deviation. It is fitted only on training patches; fitting it on test images would leak test information.
+
+For vectors a and b, Euclidean distance is sqrt(sum((a_i - b_i)^2)). PatchScope transforms a query patch using the training scaler, compares it with all reference-patch vectors, and takes the distance to its nearest normal patch. Greater distance means less similar to this feature bank, not a probability of a defect.
+
+The normal bank has 32 synthetic training images × 64 patches = 2,048 vectors. Search uses scikit-learn NearestNeighbors with brute force. It is not an approximate-nearest-neighbor index; a large bank may be slower. No GPU is required.
+
+5. IMAGE SCORE, CUTOFF AND HEATMAP
+
+The maximum of 64 patch distances becomes the image score. A single noisy patch can therefore trigger an image-level flag. The cutoff is the 95th percentile of maximum-patch scores from 12 separate generated normal validation images. With only 12 observations, this percentile is unstable and does not ensure a 5% real-world false-alarm rate.
+
+The overlay divides each patch score by the maximum score in that same image and uses red transparency. This emphasizes relatively unusual regions within that image even if every patch is fairly normal. Red is NOT a probability and should not be compared numerically across images. The output is a coarse patch map, not a precise segmentation mask.
+
+6. TRAIN, VALIDATION AND TEST
+
+Train: 32 normal synthetic images, fixed seeds, build scaler and bank.
+Validation: 12 distinct synthetic normal images choose a cutoff.
+Test: 8 distinct normal and 8 generated defective images for image-level AUC and numbers flagged. Their outcomes were inspected during development; they are not an independent benchmark.
+
+A synthetic defect is a dark rectangle on a generated gray texture. Because the simulated defect is deliberately simple and the generator is shared, good results can be misleading. The app does not report pixel-level localization metrics, real factory performance or confidence intervals.
+
+ROC AUC measures ranking: roughly, the probability that a randomly selected positive receives a higher score than a randomly selected negative, with tie handling. It does not determine a chosen cutoff or measure pixel localization. False-positive rate and recall at a real operating threshold also matter. Tiny test sets make all estimates unstable.
+
+7. HOW THE APP WORKS
+
+app/vision.py generates textures, checks image bytes and pixel limits, creates features, fits the bank, scores patches and creates a PNG overlay. app/main.py serves sample and upload APIs. app/base.py adds localhost and browser-origin checks. The frontend displays the result and warnings. Uploads can spool to temporary disk; do not upload sensitive images. PNG/JPEG only; images larger than the documented limits are rejected.
+
+First installation needs internet for Python packages; after installation, the synthetic application works offline. It uses Pillow, NumPy and scikit-learn, not a hosted AI provider. The reference bank is rebuilt at startup from deterministic inputs.
+
+8. WHAT REAL VALIDATION WOULD REQUIRE
+
+Obtain representative camera images under permitted licenses, including normal variation, defect types and labels. Keep distinct production batches, cameras or product instances separated where appropriate to avoid near-duplicate leakage. Choose the cutoff on a validation set. Evaluate on a separate unseen test set; report image-level metrics and, when masks exist, pixel- or region-level localization metrics, error cases and false-alarm rate. Check changes in illumination, orientation, product types and manufacturing processes. A static dataset cannot establish safety or clinical/industrial readiness.
+
+Possible advanced extension: use a pretrained feature extractor and a PatchCore-style memory bank, then compare it with this actual handcrafted baseline using the same held-out data and protocol. PatchCore is a separate research method; this repository does not implement it. Check dataset and model terms before use. MVTec AD is a research dataset; review its usage license.
+
+9. INTERVIEW QUESTIONS
+
+Q1 What does PatchScope do? A: Compares synthetic normal patches with query patches and displays an image-level score and coarse overlay.
+Q2 Is this supervised defect classification? A: The reference bank is fitted using normal images without defect labels; labels are used for synthetic evaluation.
+Q3 Does it use a pretrained neural network? A: No. Four hand-engineered intensity and texture features are used.
+Q4 Why patches? A: They retain approximate location; one global image vector could obscure a localized issue. Small patches may lose context.
+Q5 Why standardize? A: To reduce dominance by features on larger numeric scales; statistics must be fitted on training features only.
+Q6 How is anomaly score calculated? A: Euclidean distance from a standardized query-patch vector to its nearest training-patch vector.
+Q7 Why use maximum patch score? A: It highlights one unusual region but is sensitive to isolated noise.
+Q8 How is the cutoff chosen? A: 95th percentile of maximum scores over 12 separate synthetic normal validation images; it offers no guaranteed real false-alarm rate.
+Q9 What does red mean? A: Higher distance relative to the most unusual patch in that image, not an absolute probability.
+Q10 What does AUC measure? A: Relative image-level ranking of simulated normal versus defective images; it does not prove segmentation performance.
+Q11 Can uploaded images train a new reference bank? A: No, only scoring against the generated bank is implemented.
+Q12 What are the test limitations? A: Sixteen simple simulated images, shared generator, test inspected during development, no representative real-world variation.
+Q13 Is this PatchCore? A: No. PatchCore-inspired comparisons might be a future extension, but the present code uses handcrafted features.
+Q14 What would you personally improve? A: Give a specific change you actually made and tested, such as adding a held-out dataset loader or measuring localized false alarms.
+Q15 What was your role? A: State honestly that the initial project was AI-assisted; discuss only your verified contributions.
+
+10. PRACTICE AND NOTEBOOKLM
+
+Read app/vision.py. Reproduce 128/16 = 8 patches per axis. Manually calculate Euclidean distance for two 2D vectors, e.g. [0,0] and [3,4] give 5. Check how training and validation seeds differ. Change a synthetic defect shape, write a test, and record outcomes without claiming real-world performance. Compare two thresholds and count flags. Explore why heatmap normalization can look alarming on a normal image.
+
+NotebookLM prompts:
+- "Explain image pixels, patches, grayscale, feature vectors and nearest-neighbor anomaly detection from scratch."
+- "Trace one image through the actual PatchScope functions, and separate model fitting from inference."
+- "Quiz me about standardization, data leakage, validation cutoff, AUC and false positives."
+- "Explain why the displayed heatmap is not a segmentation probability."
+- "Compare this handcrafted baseline with PatchCore, clearly separating implemented features from hypothetical extensions."
+
+Reading: scikit-learn NearestNeighbors https://scikit-learn.org/stable/modules/neighbors.html ; PatchCore paper https://openaccess.thecvf.com/content/CVPR2022/papers/Roth_Towards_Total_Recall_in_Industrial_Anomaly_Detection_CVPR_2022_paper.pdf ; MVTec AD https://www.mvtec.com/research-teaching/datasets/mvtec-ad .
