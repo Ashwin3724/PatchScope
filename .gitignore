@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+
+# Generated from included .b64 files
+/docs/screenshot.png
