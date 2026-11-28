@@ -1,6 +1,7 @@
 # PatchScope — Visual Anomaly Lab
 
-Preview image is included in encoded form; run `python restore_assets.py` to restore `docs/screenshot.png` locally.
+![PatchScope application screenshot](docs/screenshot.png)
+
 A local, hands-on **classical computer-vision baseline** for finding unusual image patches relative to a reference set of synthetic normal surfaces. The generated samples, labels and heatmaps are educational; this is **not PatchCore, not a pretrained neural network, and not a production defect detector**. No real factory data are included. Never use results to accept, reject or assess safety of real products.
 
 ## Start on Windows
